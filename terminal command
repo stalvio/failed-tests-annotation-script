@@ -4,3 +4,5 @@ rm -rf ~/.gradle/caches/
 ./gradlew --stop
 
 rm -rf ~/.gradle/daemon/
+
+./gradlew wrapper --gradle-version=8.10
