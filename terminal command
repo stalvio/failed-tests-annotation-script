@@ -18,4 +18,7 @@ java -version
 
 ./gradlew --version
 
-
+On Windows (if applicable): Use Resource Monitor or a tool like Handle (from Sysinternals) to find processes locking the directories:
+bash
+handle.exe -a "C:\Users\<YourUser>\.gradle\caches"
+Terminate the locking processes via Task Manager or taskkill.
