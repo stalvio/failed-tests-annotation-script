@@ -89,3 +89,21 @@ configurations.all {
         }
     }
 }
+
+configurations.all {
+    resolutionStrategy {
+        force 'com.google.guava:guava:33.4.8-jre'
+        // Enforce Java 17 and standard JVM attributes
+        eachDependency { details ->
+            if (details.requested.group == 'com.google.guava' && details.requested.name == 'guava') {
+                details.useVersion '33.4.8-jre'
+                details.because 'Force Guava 33.4.8-jre for compatibility with Selenium 4.24.0 and Java 17'
+            }
+        }
+    }
+    attributes {
+        attribute(Attribute.of('org.gradle.jvm.version', Integer), 17)
+        attribute(Attribute.of('org.gradle.jvm.environment', String), 'standard-jvm')
+        attribute(Attribute.of('org.gradle.libraryelements', String), 'jar')
+    }
+}
