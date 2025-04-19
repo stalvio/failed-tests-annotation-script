@@ -1,2 +1,6 @@
 ./gradlew cleanBuildCache
 rm -rf ~/.gradle/caches/
+
+./gradlew --stop
+
+rm -rf ~/.gradle/daemon/
