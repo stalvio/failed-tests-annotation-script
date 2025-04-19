@@ -1,0 +1,78 @@
+plugins {
+    id 'groovy'
+    id 'java-library'
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
+}
+
+dependencies {
+    implementation platform('org.apache.groovy:groovy-bom:4.0.25')
+    implementation 'org.apache.groovy:groovy'
+    implementation 'org.apache.groovy:groovy-xml'
+    implementation 'org.apache.groovy:groovy-json'
+    testImplementation 'org.gebish:geb-spock:7.0'
+    testImplementation 'org.gebish:geb-core:7.0'
+    testImplementation platform('org.spockframework:spock-bom:2.4-M6-groovy-4.0')
+    testImplementation 'org.spockframework:spock-core:2.4-M6-groovy-4.0'
+    testImplementation 'org.spockframework:spock-spring:2.4-M6-groovy-4.0'
+    testImplementation('org.seleniumhq.selenium:selenium-java:4.24.0') {
+        exclude group: 'com.google.guava', module: 'guava'
+    }
+    testImplementation('io.github.bonigarcia:webdrivermanager:5.9.2') {
+        exclude group: 'com.google.guava', module: 'guava'
+        exclude group: 'com.github.docker-java' // Exclude docker-java to avoid Guava 19.0
+    }
+    testImplementation('com.google.guava:guava:33.4.8-jre') {
+        attributes {
+            attribute(Attribute.of('org.gradle.jvm.environment', String), 'standard-jvm')
+        }
+    }
+    testRuntimeOnly 'net.bytebuddy:byte-buddy:1.17.0'
+    testRuntimeOnly 'org.objenesis:objenesis:3.4'
+}
+
+configurations.all {
+    resolutionStrategy {
+        force 'com.google.guava:guava:33.4.8-jre'
+        // Explicitly select jreApiElements variant
+        dependencySubstitution {
+            substitute module('com.google.guava:guava') with module('com.google.guava:guava:33.4.8-jre') {
+                attributes {
+                    attribute(Attribute.of('org.gradle.jvm.environment', String), 'standard-jvm')
+                }
+            }
+        }
+    }
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
+}
+
+
+testImplementation('io.appium:java-client:9.2.3') {
+    exclude group: 'com.google.guava', module: 'guava'
+    exclude group: 'org.seleniumhq.selenium', module: 'selenium-java' // Avoid Selenium 3.x conflict
+}
+
+testImplementation('org.apache.tika:tika-langdetect-optimaize:2.9.1') {
+    exclude group: 'com.google.guava', module: 'guava'
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
+}
