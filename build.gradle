@@ -76,3 +76,16 @@ java {
         languageVersion.set(JavaLanguageVersion.of(17))
     }
 }
+
+configurations.all {
+    resolutionStrategy {
+        force 'com.google.guava:guava:33.4.8-jre'
+        dependencySubstitution {
+            substitute module('com.google.guava:guava') with module('com.google.guava:guava:33.4.8-jre') {
+                attributes {
+                    attribute(Attribute.of('org.gradle.jvm.environment', String), 'standard-jvm')
+                }
+            }
+        }
+    }
+}
