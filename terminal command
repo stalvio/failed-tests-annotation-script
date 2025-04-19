@@ -1,0 +1,2 @@
+./gradlew cleanBuildCache
+rm -rf ~/.gradle/caches/
