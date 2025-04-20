@@ -32,3 +32,17 @@ edge {
     options.setCapability("acceptInsecureCerts", true)
     new EdgeDriver(options)
 }
+
+import org.openqa.selenium.edge.EdgeDriver
+import io.github.bonigarcia.wdm.WebDriverManager
+
+def "test Edge directly"() {
+    WebDriverManager.edgedriver().setup()
+    def driver = new EdgeDriver()
+    try {
+        driver.get("https://www.example.com")
+        println "Title: ${driver.title}"
+    } finally {
+        driver.quit()
+    }
+}
