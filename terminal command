@@ -56,3 +56,17 @@ edge {
         options.setCapability("ms:edgeOptions", [args: ["--verbose", "--log-path=/tmp/edgedriver.log"]])
         new EdgeDriver(options)
     }
+
+edge {
+        WebDriverManager.edgedriver().setup()
+        EdgeOptions options = new EdgeOptions()
+        // Use a temporary user data directory
+        options.addArguments("--user-data-dir=/tmp/edge-temp-profile-${System.currentTimeMillis()}")
+        // Optional: Maximize window
+        options.addArguments("--start-maximized")
+        // Optional: Disable extensions to ensure a clean environment
+        options.addArguments("--disable-extensions")
+        // Optional: Handle insecure certificates (in case of SSL issues)
+        options.setCapability("acceptInsecureCerts", true)
+        new EdgeDriver(options)
+    }
