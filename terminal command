@@ -46,3 +46,13 @@ def "test Edge directly"() {
         driver.quit()
     }
 }
+
+edge {
+        WebDriverManager.edgedriver().setup()
+        EdgeOptions options = new EdgeOptions()
+        options.addArguments("--no-sandbox")
+        options.addArguments("--disable-dev-shm-usage")
+        options.setCapability("acceptInsecureCerts", true)
+        options.setCapability("ms:edgeOptions", [args: ["--verbose", "--log-path=/tmp/edgedriver.log"]])
+        new EdgeDriver(options)
+    }
