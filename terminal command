@@ -97,3 +97,5 @@ environments {
         new EdgeDriver(options)
     }
 }
+
+./gradlew test -Dgeb.environment=edge --stacktrace
