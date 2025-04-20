@@ -22,3 +22,13 @@ On Windows (if applicable): Use Resource Monitor or a tool like Handle (from Sys
 bash
 handle.exe -a "C:\Users\<YourUser>\.gradle\caches"
 Terminate the locking processes via Task Manager or taskkill.
+
+edge {
+    WebDriverManager.edgedriver().setup()
+    EdgeOptions options = new EdgeOptions()
+    // Minimal options to test
+    options.addArguments("--no-sandbox")
+    options.addArguments("--disable-dev-shm-usage")
+    options.setCapability("acceptInsecureCerts", true)
+    new EdgeDriver(options)
+}
