@@ -70,3 +70,30 @@ edge {
         options.setCapability("acceptInsecureCerts", true)
         new EdgeDriver(options)
     }
+
+import org.openqa.selenium.edge.EdgeDriver
+import org.openqa.selenium.edge.EdgeOptions
+import io.github.bonigarcia.wdm.WebDriverManager
+import java.util.logging.Level
+import java.util.logging.Logger
+
+// Enable Selenium logging
+Logger.getLogger("org.openqa.selenium").setLevel(Level.ALL)
+
+environments {
+    edge {
+        WebDriverManager.edgedriver().setup()
+        EdgeOptions options = new EdgeOptions()
+        // Minimal options to avoid conflicts
+        options.addArguments("--no-sandbox")
+        options.addArguments("--disable-dev-shm-usage")
+        options.addArguments("--disable-extensions")
+        // Use a fresh temporary profile
+        options.addArguments("--user-data-dir=C:\\Temp\\edge-temp-profile-${System.currentTimeMillis()}")
+        // Handle potential SSL issues
+        options.setCapability("acceptInsecureCerts", true)
+        // Enable EdgeDriver logging
+        options.setCapability("ms:edgeOptions", [args: ["--verbose", "--log-path=C:\\Temp\\edgedriver.log"]])
+        new EdgeDriver(options)
+    }
+}
