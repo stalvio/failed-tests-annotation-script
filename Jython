@@ -41,6 +41,9 @@ class BurpExtender(IBurpExtender, IHttpListener):
                     # Convert request body to string
                     request_body = self._helpers.bytesToString(request)
 
+                    # Add logging here to capture all requests
+                    print(f"Processing request to {path} with body: {request_body[:100]}...")
+
                     # Check for each string in the request body
                     for target_string, status_code in string_to_status.items():
                         if target_string in request_body:
