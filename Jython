@@ -34,7 +34,7 @@ class BurpExtender(IBurpExtender, IHttpListener):
             request_info = self._helpers.analyzeRequest(messageInfo)
             url = request_info.getUrl()
             path = url.getPath()
-
+            
             # Check if the path matches any defined endpoint
             for endpoint, string_to_status in self.rules.items():
                 if path.endswith(endpoint):
@@ -42,7 +42,7 @@ class BurpExtender(IBurpExtender, IHttpListener):
                     request_body = self._helpers.bytesToString(request)
 
                     # Add logging here to capture all requests
-                    print(f"Processing request to {path} with body: {request_body[:100]}...")
+                    print("Processing request to %s with body: %s..." % (path, request_body[:100]))
 
                     # Check for each string in the request body
                     for target_string, status_code in string_to_status.items():
