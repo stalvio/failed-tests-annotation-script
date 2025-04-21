@@ -1,0 +1,66 @@
+from burp import IBurpExtender
+from burp import IHttpListener
+
+class BurpExtender(IBurpExtender, IHttpListener):
+    def registerExtenderCallbacks(self, callbacks):
+        self._callbacks = callbacks
+        self._helpers = callbacks.getHelpers()
+        callbacks.setExtensionName("CustomResponseStatusModifier")
+        callbacks.registerHttpListener(self)
+        print("Extension Loaded: Custom Response Status Modifier")
+
+        # Define endpoint-specific rules
+        self.rules = {
+            "/api/endpoint1": {  # First endpoint
+                "error_trigger": "500 Internal Server Error",
+                "unauthorized": "401 Unauthorized",
+                "bad_request": "400 Bad Request"
+            },
+            "/api/endpoint2": {  # Second endpoint
+                "invalid": "400 Bad Request",
+                "forbidden": "403 Forbidden",
+                "not_found": "404 Not Found"
+            }
+        }
+
+    def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
+        # Only process responses
+        if not messageIsRequest:
+            # Get the request and response
+            request = messageInfo.getRequest()
+            response = messageInfo.getResponse()
+
+            # Analyze request to get URL path
+            request_info = self._helpers.analyzeRequest(messageInfo)
+            url = request_info.getUrl()
+            path = url.getPath()
+
+            # Check if the path matches any defined endpoint
+            for endpoint, string_to_status in self.rules.items():
+                if path.endswith(endpoint):
+                    # Convert request body to string
+                    request_body = self._helpers.bytesToString(request)
+
+                    # Check for each string in the request body
+                    for target_string, status_code in string_to_status.items():
+                        if target_string in request_body:
+                            # Parse the response
+                            response_info = self._helpers.analyzeResponse(response)
+                            headers = response_info.getHeaders()
+                            body = response[response_info.getBodyOffset():]
+
+                            # Modify the status line (first header)
+                            new_headers = []
+                            for header in headers:
+                                if header.startswith("HTTP/1.1"):
+                                    new_headers.append(f"HTTP/1.1 {status_code}")
+                                else:
+                                    new_headers.append(header)
+
+                            # Build and set the modified response
+                            modified_response = self._helpers.buildHttpMessage(new_headers, body)
+                            messageInfo.setResponse(modified_response)
+                            print(f"Modified response for {endpoint}: {target_string} -> {status_code}")
+                            return  # Exit after the first match
+
+    print(f"No matching string found for {path}")
