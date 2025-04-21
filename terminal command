@@ -99,3 +99,5 @@ environments {
 }
 
 ./gradlew test -Dgeb.environment=edge --stacktrace
+
+options.addArguments("--remote-allow-origins=*")
