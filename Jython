@@ -125,3 +125,7 @@ class BurpExtender(IBurpExtender, IHttpListener):
                                     messageInfo.setResponse(modified_response)
                                     print("Modified response line for %s: %s -> %s" % (endpoint, response_string, replacement_line))
                                     return  # Exit after first match
+
+# Get response body
+            response_info = self._helpers.analyzeResponse(response)
+            response_body = self._helpers.bytesToString(response[response_info.getBodyOffset():])
