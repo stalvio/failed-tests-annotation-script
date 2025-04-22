@@ -6,88 +6,100 @@ class BurpExtender(IBurpExtender, IHttpListener):
     def registerExtenderCallbacks(self, callbacks):
         self._callbacks = callbacks
         self._helpers = callbacks.getHelpers()
-        callbacks.setExtensionName("CustomResponseStatusModifier")
+        callbacks.setExtensionName("CustomRequestBodyModifier")
         callbacks.registerHttpListener(self)
-        print("Extension Loaded: Custom Response Status Modifier")
+        print("Extension Loaded: Custom Request Body Modifier")
 
-        # Path-based rules (same as before)
+        # Path-based rules: map endpoint to {target_string: replacement_body}
         self.path_rules = {
             "/api/endpoint1": {
-                "error_trigger": "500 Internal Server Error",
-                "unauthorized": "401 Unauthorized",
-                "bad_request": "400 Bad Request"
+                "error_trigger": '{"error": "Modified due to error_trigger"}',
+                "unauthorized": '{"error": "Modified due to unauthorized"}',
+                "bad_request": '{"error": "Modified due to bad_request"}'
             },
             "/api/endpoint2": {
-                "invalid": "400 Bad Request",
-                "forbidden": "403 Forbidden",
-                "not_found": "404 Not Found"
+                "invalid": '{"error": "Modified due to invalid"}',
+                "forbidden": '{"error": "Modified due to forbidden"}',
+                "not_found": '{"error": "Modified due to not_found"}'
             }
         }
 
-        # New parameter-based rules
+        # Parameter-based rules: map param_key_value to {target_string: replacement_body}
         self.param_rules = {
-            "action=submit": {  # Matches ?action=submit
-                "submit_error": "500 Internal Server Error",
-                "no_access": "401 Unauthorized"
+            "action=submit": {
+                "submit_error": '{"error": "Modified due to submit_error"}',
+                "no_access": '{"error": "Modified due to no_access"}'
             },
-            "id=123": {  # Matches ?id=123
-                "invalid_id": "400 Bad Request",
-                "id_not_found": "404 Not Found"
+            "id=123": {
+                "invalid_id": '{"error": "Modified due to invalid_id"}',
+                "id_not_found": '{"error": "Modified due to id_not_found"}'
             }
         }
 
     def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
-        if not messageIsRequest:
+        if messageIsRequest:  # Process requests (changed from responses)
             request = messageInfo.getRequest()
-            response = messageInfo.getResponse()
             request_info = self._helpers.analyzeRequest(messageInfo)
             url = request_info.getUrl()
             path = url.getPath()
-            request_body = self._helpers.bytesToString(request)
+            request_body = self._helpers.bytesToString(request[request_info.getBodyOffset():])
             print("Processing request to %s with body: %s..." % (path, request_body[:100]))
 
             # Extract query parameters
             query = url.getQuery()
             query_params = {}
             if query:
-                # Parse query string into a dictionary (e.g., action=submit&id=123)
                 query_params = dict(urlparse.parse_qsl(query))
 
             # Check parameter-based rules
-            for param_key_value, string_to_status in self.param_rules.items():
+            for param_key_value, string_to_body in self.param_rules.items():
                 param_key, param_value = param_key_value.split("=", 1)
                 if param_key in query_params and query_params[param_key] == param_value:
-                    for target_string, status_code in string_to_status.items():
+                    for target_string, new_body in string_to_body.items():
                         if target_string in request_body:
-                            response_info = self._helpers.analyzeResponse(response)
-                            headers = response_info.getHeaders()
-                            body = response[response_info.getBodyOffset():]
+                            # Get request headers
+                            headers = request_info.getHeaders()
                             new_headers = []
+                            content_length_updated = False
+
+                            # Update Content-Length header
                             for header in headers:
-                                if header.startswith("HTTP/1.1"):
-                                    new_headers.append("HTTP/1.1 %s" % status_code)
+                                if header.lower().startswith("content-length:"):
+                                    content_length_updated = True
+                                    new_headers.append("Content-Length: %s" % len(new_body))
                                 else:
                                     new_headers.append(header)
-                            modified_response = self._helpers.buildHttpMessage(new_headers, body)
-                            messageInfo.setResponse(modified_response)
-                            print("Modified response for param %s: %s -> %s" % (param_key_value, target_string, status_code))
+                            if not content_length_updated:
+                                new_headers.append("Content-Length: %s" % len(new_body))
+
+                            # Build new request with modified body
+                            modified_request = self._helpers.buildHttpMessage(new_headers, new_body)
+                            messageInfo.setRequest(modified_request)
+                            print("Modified request body for param %s: %s -> %s" % (param_key_value, target_string, new_body[:100]))
                             return  # Exit after first match
 
-            # Check path-based rules (fallback)
-            for endpoint, string_to_status in self.path_rules.items():
+            # Check path-based rules
+            for endpoint, string_to_body in self.path_rules.items():
                 if path.endswith(endpoint):
-                    for target_string, status_code in string_to_status.items():
+                    for target_string, new_body in string_to_body.items():
                         if target_string in request_body:
-                            response_info = self._helpers.analyzeResponse(response)
-                            headers = response_info.getHeaders()
-                            body = response[response_info.getBodyOffset():]
+                            # Get request headers
+                            headers = request_info.getHeaders()
                             new_headers = []
+                            content_length_updated = False
+
+                            # Update Content-Length header
                             for header in headers:
-                                if header.startswith("HTTP/1.1"):
-                                    new_headers.append("HTTP/1.1 %s" % status_code)
+                                if header.lower().startswith("content-length:"):
+                                    content_length_updated = True
+                                    new_headers.append("Content-Length: %s" % len(new_body))
                                 else:
                                     new_headers.append(header)
-                            modified_response = self._helpers.buildHttpMessage(new_headers, body)
-                            messageInfo.setResponse(modified_response)
-                            print("Modified response for %s: %s -> %s" % (endpoint, target_string, status_code))
+                            if not content_length_updated:
+                                new_headers.append("Content-Length: %s" % len(new_body))
+
+                            # Build new request with modified body
+                            modified_request = self._helpers.buildHttpMessage(new_headers, new_body)
+                            messageInfo.setRequest(modified_request)
+                            print("Modified request body for %s: %s -> %s" % (endpoint, target_string, new_body[:100]))
                             return  # Exit after first match
