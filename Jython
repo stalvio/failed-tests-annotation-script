@@ -5,95 +5,107 @@ class BurpExtender(IBurpExtender, IHttpListener):
     def registerExtenderCallbacks(self, callbacks):
         self._callbacks = callbacks
         self._helpers = callbacks.getHelpers()
-        callbacks.setExtensionName("CustomRequestBodyModifier")
+        callbacks.setExtensionName("CustomResponseBodyModifier")
         callbacks.registerHttpListener(self)
-        print("Extension Loaded: Custom Request Body Modifier")
+        print("Extension Loaded: Custom Response Body Modifier")
 
-        # Path-based rules: map endpoint to {target_string: replacement_body}
+        # Path-based rules: map endpoint to {request_string: {response_string: replacement_string}}
         self.path_rules = {
             "/api/endpoint1": {
-                "error_trigger": '{"error": "Modified due to error_trigger"}',
-                "unauthorized": '{"error": "Modified due to unauthorized"}',
-                "bad_request": '{"error": "Modified due to bad_request"}'
+                "error_trigger": {"success": "error_due_to_trigger"},
+                "unauthorized": {"access_granted": "access_denied"},
+                "bad_request": {"valid": "invalid"}
             },
             "/api/endpoint2": {
-                "invalid": '{"error": "Modified due to invalid"}',
-                "forbidden": '{"error": "Modified due to forbidden"}',
-                "not_found": '{"error": "Modified due to not_found"}'
+                "invalid": {"ok": "error_invalid"},
+                "forbidden": {"allowed": "not_allowed"},
+                "not_found": {"found": "not_found"}
             }
         }
 
-        # URL string-based rules: map URL substring to {target_string: replacement_body}
+        # URL string-based rules: map URL substring to {request_string: {response_string: replacement_string}}
         self.url_rules = {
             "submit": {
-                "submit_error": '{"error": "Modified due to submit_error"}',
-                "no_access": '{"error": "Modified due to no_access"}'
+                "submit_error": {"success": "submit_failed"},
+                "no_access": {"granted": "denied"}
             },
             "user123": {
-                "invalid_id": '{"error": "Modified due to invalid_id"}',
-                "id_not_found": '{"error": "Modified due to id_not_found"}'
+                "invalid_id": {"valid_id": "invalid_id"},
+                "id_not_found": {"exists": "missing"}
             }
         }
 
     def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
-        if messageIsRequest:  # Process requests
+        if not messageIsRequest:  # Process responses
             request = messageInfo.getRequest()
+            response = messageInfo.getResponse()
             request_info = self._helpers.analyzeRequest(messageInfo)
             url = request_info.getUrl()
             path = url.getPath()
-            # Get full URL (path + query) as string
             full_url = url.toString()
             request_body = self._helpers.bytesToString(request[request_info.getBodyOffset():])
             print("Processing request to %s with body: %s..." % (path, request_body[:100]))
 
+            # Get response body
+            response_info = self._helpers.analyzeResponse(response)
+            response_body = self._helpers.bytesToString(response[response_info.getBodyOffset():])
+
             # Check URL string-based rules
-            for url_string, string_to_body in self.url_rules.items():
-                if url_string in full_url:  # Case-sensitive match
-                    for target_string, new_body in string_to_body.items():
-                        if target_string in request_body:
-                            # Get request headers
-                            headers reconocido = request_info.getHeaders()
-                            new_headers = []
-                            content_length_updated = False
+            for url_string, string_to_replacement in self.url_rules.items():
+                if url_string in full_url:
+                    for request_string, response_replacement in string_to_replacement.items():
+                        if request_string in request_body:
+                            for response_string, replacement_string in response_replacement.items():
+                                if response_string in response_body:
+                                    # Replace string in response body
+                                    new_body = response_body.replace(response_string, replacement_string)
+                                    # Get response headers
+                                    headers = response_info.getHeaders()
+                                    new_headers = []
+                                    content_length_updated = False
 
-                            # Update Content-Length header
-                            for header in headers:
-                                if header.lower().startswith("content-length:"):
-                                    content_length_updated = True
-                                    new_headers.append("Content-Length: %s" % len(new_body))
-                                else:
-                                    new_headers.append(header)
-                            if not content_length_updated:
-                                new_headers.append("Content-Length: %s" % len(new_body))
+                                    # Update Content-Length header
+                                    for header in headers:
+                                        if header.lower().startswith("content-length:"):
+                                            content_length_updated = True
+                                            new_headers.append("Content-Length: %s" % len(new_body))
+                                        else:
+                                            new_headers.append(header)
+                                    if not content_length_updated:
+                                        new_headers.append("Content-Length: %s" % len(new_body))
 
-                            # Build new request with modified body
-                            modified_request = self._helpers.buildHttpMessage(new_headers, new_body)
-                            messageInfo.setRequest(modified_request)
-                            print("Modified request body for URL string %s: %s -> %s" % (url_string, target_string, new_body[:100]))
-                            return  # Exit after first match
+                                    # Build new response
+                                    modified_response = self._helpers.buildHttpMessage(new_headers, new_body)
+                                    messageInfo.setResponse(modified_response)
+                                    print("Modified response body for URL string %s: %s -> %s" % (url_string, response_string, replacement_string))
+                                    return  # Exit after first match
 
             # Check path-based rules (fallback)
-            for endpoint, string_to_body in self.path_rules.items():
+            for endpoint, string_to_replacement in self.path_rules.items():
                 if path.endswith(endpoint):
-                    for target_string, new_body in string_to_body.items():
-                        if target_string in request_body:
-                            # Get request headers
-                            headers = request_info.getHeaders()
-                            new_headers = []
-                            content_length_updated = False
+                    for request_string, response_replacement in string_to_replacement.items():
+                        if request_string in request_body:
+                            for response_string, replacement_string in response_replacement.items():
+                                if response_string in response_body:
+                                    # Replace string in response body
+                                    new_body = response_body.replace(response_string, replacement_string)
+                                    # Get response headers
+                                    headers = response_info.getHeaders()
+                                    new_headers = []
+                                    content_length_updated = False
 
-                            # Update Content-Length header
-                            for header in headers:
-                                if header.lower().startswith("content-length:"):
-                                    content_length_updated = True
-                                    new_headers.append("Content-Length: %s" % len(new_body))
-                                else:
-                                    new_headers.append(header)
-                            if not content_length_updated:
-                                new_headers.append("Content-Length: %s" % len(new_body))
+                                    # Update Content-Length header
+                                    for header in headers:
+                                        if header.lower().startswith("content-length:"):
+                                            content_length_updated = True
+                                            new_headers.append("Content-Length: %s" % len(new_body))
+                                        else:
+                                            new_headers.append(header)
+                                    if not content_length_updated:
+                                        new_headers.append("Content-Length: %s" % len(new_body))
 
-                            # Build new request with modified body
-                            modified_request = self._helpers.buildHttpMessage(new_headers, new_body)
-                            messageInfo.setRequest(modified_request)
-                            print("Modified request body for %s: %s -> %s" % (endpoint, target_string, new_body[:100]))
-                            return  # Exit after first match
+                                    # Build new response
+                                    modified_response = self._helpers.buildHttpMessage(new_headers, new_body)
+                                    messageInfo.setResponse(modified_response)
+                                    print("Modified response body for %s: %s -> %s" % (endpoint, response_string, replacement_string))
+                                    return  # Exit after first match
