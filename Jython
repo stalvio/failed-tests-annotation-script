@@ -1,6 +1,5 @@
 from burp import IBurpExtender
 from burp import IHttpListener
-import urlparse  # For parsing query parameters in Jython 2.7
 
 class BurpExtender(IBurpExtender, IHttpListener):
     def registerExtenderCallbacks(self, callbacks):
@@ -24,41 +23,36 @@ class BurpExtender(IBurpExtender, IHttpListener):
             }
         }
 
-        # Parameter-based rules: map param_key_value to {target_string: replacement_body}
-        self.param_rules = {
-            "action=submit": {
+        # URL string-based rules: map URL substring to {target_string: replacement_body}
+        self.url_rules = {
+            "submit": {
                 "submit_error": '{"error": "Modified due to submit_error"}',
                 "no_access": '{"error": "Modified due to no_access"}'
             },
-            "id=123": {
+            "user123": {
                 "invalid_id": '{"error": "Modified due to invalid_id"}',
                 "id_not_found": '{"error": "Modified due to id_not_found"}'
             }
         }
 
     def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
-        if messageIsRequest:  # Process requests (changed from responses)
+        if messageIsRequest:  # Process requests
             request = messageInfo.getRequest()
             request_info = self._helpers.analyzeRequest(messageInfo)
             url = request_info.getUrl()
             path = url.getPath()
+            # Get full URL (path + query) as string
+            full_url = url.toString()
             request_body = self._helpers.bytesToString(request[request_info.getBodyOffset():])
             print("Processing request to %s with body: %s..." % (path, request_body[:100]))
 
-            # Extract query parameters
-            query = url.getQuery()
-            query_params = {}
-            if query:
-                query_params = dict(urlparse.parse_qsl(query))
-
-            # Check parameter-based rules
-            for param_key_value, string_to_body in self.param_rules.items():
-                param_key, param_value = param_key_value.split("=", 1)
-                if param_key in query_params and query_params[param_key] == param_value:
+            # Check URL string-based rules
+            for url_string, string_to_body in self.url_rules.items():
+                if url_string in full_url:  # Case-sensitive match
                     for target_string, new_body in string_to_body.items():
                         if target_string in request_body:
                             # Get request headers
-                            headers = request_info.getHeaders()
+                            headers reconocido = request_info.getHeaders()
                             new_headers = []
                             content_length_updated = False
 
@@ -75,10 +69,10 @@ class BurpExtender(IBurpExtender, IHttpListener):
                             # Build new request with modified body
                             modified_request = self._helpers.buildHttpMessage(new_headers, new_body)
                             messageInfo.setRequest(modified_request)
-                            print("Modified request body for param %s: %s -> %s" % (param_key_value, target_string, new_body[:100]))
+                            print("Modified request body for URL string %s: %s -> %s" % (url_string, target_string, new_body[:100]))
                             return  # Exit after first match
 
-            # Check path-based rules
+            # Check path-based rules (fallback)
             for endpoint, string_to_body in self.path_rules.items():
                 if path.endswith(endpoint):
                     for target_string, new_body in string_to_body.items():
