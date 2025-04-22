@@ -1,5 +1,6 @@
 from burp import IBurpExtender
 from burp import IHttpListener
+import urlparse  # For parsing query parameters in Jython 2.7
 
 class BurpExtender(IBurpExtender, IHttpListener):
     def registerExtenderCallbacks(self, callbacks):
@@ -9,61 +10,84 @@ class BurpExtender(IBurpExtender, IHttpListener):
         callbacks.registerHttpListener(self)
         print("Extension Loaded: Custom Response Status Modifier")
 
-        # Define endpoint-specific rules
-        self.rules = {
-            "/api/endpoint1": {  # First endpoint
+        # Path-based rules (same as before)
+        self.path_rules = {
+            "/api/endpoint1": {
                 "error_trigger": "500 Internal Server Error",
                 "unauthorized": "401 Unauthorized",
                 "bad_request": "400 Bad Request"
             },
-            "/api/endpoint2": {  # Second endpoint
+            "/api/endpoint2": {
                 "invalid": "400 Bad Request",
                 "forbidden": "403 Forbidden",
                 "not_found": "404 Not Found"
             }
         }
 
+        # New parameter-based rules
+        self.param_rules = {
+            "action=submit": {  # Matches ?action=submit
+                "submit_error": "500 Internal Server Error",
+                "no_access": "401 Unauthorized"
+            },
+            "id=123": {  # Matches ?id=123
+                "invalid_id": "400 Bad Request",
+                "id_not_found": "404 Not Found"
+            }
+        }
+
     def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
-        # Only process responses
         if not messageIsRequest:
-            # Get the request and response
             request = messageInfo.getRequest()
             response = messageInfo.getResponse()
-
-            # Analyze request to get URL path
             request_info = self._helpers.analyzeRequest(messageInfo)
             url = request_info.getUrl()
             path = url.getPath()
-            
-            # Check if the path matches any defined endpoint
-            for endpoint, string_to_status in self.rules.items():
-                if path.endswith(endpoint):
-                    # Convert request body to string
-                    request_body = self._helpers.bytesToString(request)
+            request_body = self._helpers.bytesToString(request)
+            print("Processing request to %s with body: %s..." % (path, request_body[:100]))
 
-                    # Add logging here to capture all requests
-                    print("Processing request to %s with body: %s..." % (path, request_body[:100]))
+            # Extract query parameters
+            query = url.getQuery()
+            query_params = {}
+            if query:
+                # Parse query string into a dictionary (e.g., action=submit&id=123)
+                query_params = dict(urlparse.parse_qsl(query))
 
-                    # Check for each string in the request body
+            # Check parameter-based rules
+            for param_key_value, string_to_status in self.param_rules.items():
+                param_key, param_value = param_key_value.split("=", 1)
+                if param_key in query_params and query_params[param_key] == param_value:
                     for target_string, status_code in string_to_status.items():
                         if target_string in request_body:
-                            # Parse the response
                             response_info = self._helpers.analyzeResponse(response)
                             headers = response_info.getHeaders()
                             body = response[response_info.getBodyOffset():]
-
-                            # Modify the status line (first header)
                             new_headers = []
                             for header in headers:
                                 if header.startswith("HTTP/1.1"):
-                                    new_headers.append(f"HTTP/1.1 {status_code}")
+                                    new_headers.append("HTTP/1.1 %s" % status_code)
                                 else:
                                     new_headers.append(header)
-
-                            # Build and set the modified response
                             modified_response = self._helpers.buildHttpMessage(new_headers, body)
                             messageInfo.setResponse(modified_response)
-                            print(f"Modified response for {endpoint}: {target_string} -> {status_code}")
-                            return  # Exit after the first match
+                            print("Modified response for param %s: %s -> %s" % (param_key_value, target_string, status_code))
+                            return  # Exit after first match
 
-    print(f"No matching string found for {path}")
+            # Check path-based rules (fallback)
+            for endpoint, string_to_status in self.path_rules.items():
+                if path.endswith(endpoint):
+                    for target_string, status_code in string_to_status.items():
+                        if target_string in request_body:
+                            response_info = self._helpers.analyzeResponse(response)
+                            headers = response_info.getHeaders()
+                            body = response[response_info.getBodyOffset():]
+                            new_headers = []
+                            for header in headers:
+                                if header.startswith("HTTP/1.1"):
+                                    new_headers.append("HTTP/1.1 %s" % status_code)
+                                else:
+                                    new_headers.append(header)
+                            modified_response = self._helpers.buildHttpMessage(new_headers, body)
+                            messageInfo.setResponse(modified_response)
+                            print("Modified response for %s: %s -> %s" % (endpoint, target_string, status_code))
+                            return  # Exit after first match
