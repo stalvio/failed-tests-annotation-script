@@ -5,33 +5,33 @@ class BurpExtender(IBurpExtender, IHttpListener):
     def registerExtenderCallbacks(self, callbacks):
         self._callbacks = callbacks
         self._helpers = callbacks.getHelpers()
-        callbacks.setExtensionName("CustomResponseBodyModifier")
+        callbacks.setExtensionName("CustomResponseLineModifier")
         callbacks.registerHttpListener(self)
-        print("Extension Loaded: Custom Response Body Modifier")
+        print("Extension Loaded: Custom Response Line Modifier")
 
-        # Path-based rules: map endpoint to {request_string: {response_string: replacement_string}}
+        # Path-based rules: map endpoint to {request_string: {response_string: replacement_line}}
         self.path_rules = {
             "/api/endpoint1": {
-                "error_trigger": {"success": "error_due_to_trigger"},
-                "unauthorized": {"access_granted": "access_denied"},
-                "bad_request": {"valid": "invalid"}
+                "error_trigger": {"success": '{"status": "error_due_to_trigger"}'},
+                "unauthorized": {"access_granted": '{"access": "denied"}'},
+                "bad_request": {"valid": '{"validity": "invalid"}'}
             },
             "/api/endpoint2": {
-                "invalid": {"ok": "error_invalid"},
-                "forbidden": {"allowed": "not_allowed"},
-                "not_found": {"found": "not_found"}
+                "invalid": {"ok": '{"status": "error_invalid"}'},
+                "forbidden": {"allowed": '{"access": "not_allowed"}'},
+                "not_found": {"found": '{"status": "not_found"}'}
             }
         }
 
-        # URL string-based rules: map URL substring to {request_string: {response_string: replacement_string}}
+        # URL string-based rules: map URL substring to {request_string: {response_string: replacement_line}}
         self.url_rules = {
             "submit": {
-                "submit_error": {"success": "submit_failed"},
-                "no_access": {"granted": "denied"}
+                "submit_error": {"success": '{"status": "submit_failed"}'},
+                "no_access": {"granted": '{"access": "denied"}'}
             },
             "user123": {
-                "invalid_id": {"valid_id": "invalid_id"},
-                "id_not_found": {"exists": "missing"}
+                "invalid_id": {"valid_id": '{"id": "invalid_id"}'},
+                "id_not_found": {"exists": '{"id": "missing"}'}
             }
         }
 
@@ -55,10 +55,18 @@ class BurpExtender(IBurpExtender, IHttpListener):
                 if url_string in full_url:
                     for request_string, response_replacement in string_to_replacement.items():
                         if request_string in request_body:
-                            for response_string, replacement_string in response_replacement.items():
-                                if response_string in response_body:
-                                    # Replace string in response body
-                                    new_body = response_body.replace(response_string, replacement_string)
+                            for response_string, replacement_line in response_replacement.items():
+                                # Split response body into lines
+                                lines = response_body.split("\n")
+                                modified = False
+                                for i, line in enumerate(lines):
+                                    if response_string in line:
+                                        lines[i] = replacement_line
+                                        modified = True
+                                        break  # Replace only the first matching line
+                                if modified:
+                                    # Join lines back into body
+                                    new_body = "\n".join(lines)
                                     # Get response headers
                                     headers = response_info.getHeaders()
                                     new_headers = []
@@ -77,7 +85,7 @@ class BurpExtender(IBurpExtender, IHttpListener):
                                     # Build new response
                                     modified_response = self._helpers.buildHttpMessage(new_headers, new_body)
                                     messageInfo.setResponse(modified_response)
-                                    print("Modified response body for URL string %s: %s -> %s" % (url_string, response_string, replacement_string))
+                                    print("Modified response line for URL string %s: %s -> %s" % (url_string, response_string, replacement_line))
                                     return  # Exit after first match
 
             # Check path-based rules (fallback)
@@ -85,10 +93,18 @@ class BurpExtender(IBurpExtender, IHttpListener):
                 if path.endswith(endpoint):
                     for request_string, response_replacement in string_to_replacement.items():
                         if request_string in request_body:
-                            for response_string, replacement_string in response_replacement.items():
-                                if response_string in response_body:
-                                    # Replace string in response body
-                                    new_body = response_body.replace(response_string, replacement_string)
+                            for response_string, replacement_line in response_replacement.items():
+                                # Split response body into lines
+                                lines = response_body.split("\n")
+                                modified = False
+                                for i, line in enumerate(lines):
+                                    if response_string in line:
+                                        lines[i] = replacement_line
+                                        modified = True
+                                        break  # Replace only the first matching line
+                                if modified:
+                                    # Join lines back into body
+                                    new_body = "\n".join(lines)
                                     # Get response headers
                                     headers = response_info.getHeaders()
                                     new_headers = []
@@ -107,5 +123,5 @@ class BurpExtender(IBurpExtender, IHttpListener):
                                     # Build new response
                                     modified_response = self._helpers.buildHttpMessage(new_headers, new_body)
                                     messageInfo.setResponse(modified_response)
-                                    print("Modified response body for %s: %s -> %s" % (endpoint, response_string, replacement_string))
+                                    print("Modified response line for %s: %s -> %s" % (endpoint, response_string, replacement_line))
                                     return  # Exit after first match
