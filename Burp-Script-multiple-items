@@ -13,12 +13,18 @@ class BurpExtender(IBurpExtender, IHttpListener):
         return
 
     def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
-        # Define the hard-coded list of 20 names
-        namelist = [
+        # Define hard-coded lists for dNames and sNames
+        dNamesList = [
             "Alpha", "Beta", "Gamma", "Delta", "Epsilon",
             "Zeta", "Eta", "Theta", "Iota", "Kappa",
             "Lambda", "Mu", "Nu", "Xi", "Omicron",
             "Pi", "Rho", "Sigma", "Tau", "Upsilon"
+        ]
+        sNamesList = [
+            "Apple", "Banana", "Cherry", "Date", "Elderberry",
+            "Fig", "Grape", "Honeydew", "Imbe", "Jackfruit",
+            "Kiwi", "Lemon", "Mango", "Nectarine", "Orange",
+            "Papaya", "Quince", "Raspberry", "Strawberry", "Tangerine"
         ]
 
         # Process requests
@@ -37,48 +43,65 @@ class BurpExtender(IBurpExtender, IHttpListener):
                     body_bytes = request[body_offset:]
                     body_str = self._helpers.bytesToString(body_bytes)
                     json_data = json.loads(body_str)
+                    modified = False
 
-                    # Check if dNames exists and has a single numeric string
+                    # Process dNames
                     if "dNames" in json_data and len(json_data["dNames"]) == 1:
                         try:
                             num_names = int(json_data["dNames"][0])
-                            if num_names > len(namelist):
-                                print("Warning: Requested {} names, but namelist has only {}. Using all available names.".format(num_names, len(namelist)))
-                                num_names = len(namelist)
+                            if num_names > len(dNamesList):
+                                print("Warning: Requested {} dNames, but dNamesList has only {}. Using all available names.".format(num_names, len(dNamesList)))
+                                num_names = len(dNamesList)
                             if num_names < 0:
-                                print("Warning: Negative number of names requested. Ignoring modification.")
-                                return
-
-                            # Select random names
-                            selected_names = random.sample(namelist, num_names)
-                            json_data["dNames"] = selected_names
-
-                            # Convert back to JSON string
-                            modified_body = json.dumps(json_data)
-                            modified_body_bytes = self._helpers.stringToBytes(modified_body)
-
-                            # Update Content-Length header
-                            headers = requestInfo.getHeaders()
-                            new_headers = []
-                            for header in headers:
-                                if not header.lower().startswith("content-length:"):
-                                    new_headers.append(header)
-                            new_headers.append("Content-Length: " + str(len(modified_body_bytes)))
-
-                            # Build new request
-                            new_request = self._helpers.buildHttpMessage(new_headers, modified_body_bytes)
-                            messageInfo.setRequest(new_request)
-                            print("Modified request for endpoint3 with {} random names".format(num_names))
-
+                                print("Warning: Negative number of dNames requested. Ignoring modification.")
+                            else:
+                                selected_names = random.sample(dNamesList, num_names)
+                                json_data["dNames"] = selected_names
+                                modified = True
+                                print("Modified dNames with {} random names".format(num_names))
                         except ValueError:
                             print("Error: dNames contains non-numeric value: {}".format(json_data["dNames"][0]))
-                    else:
-                        print("No modification: dNames does not contain a single numeric string")
+
+                    # Process sNames
+                    if "sNames" in json_data and len(json_data["sNames"]) == 1:
+                        try:
+                            num_names = int(json_data["sNames"][0])
+                            if num_names > len(sNamesList):
+                                print("Warning: Requested {} sNames, but sNamesList has only {}. Using all available names.".format(num_names, len(sNamesList)))
+                                num_names = len(sNamesList)
+                            if num_names < 0:
+                                print("Warning: Negative number of sNames requested. Ignoring modification.")
+                            else:
+                                selected_names = random.sample(sNamesList, num_names)
+                                json_data["sNames"] = selected_names
+                                modified = True
+                                print("Modified sNames with {} random names".format(num_names))
+                        except ValueError:
+                            print("Error: sNames contains non-numeric value: {}".format(json_data["sNames"][0]))
+
+                    # If modifications were made, update the request
+                    if modified:
+                        # Convert back to JSON string
+                        modified_body = json.dumps(json_data)
+                        modified_body_bytes = self._helpers.stringToBytes(modified_body)
+
+                        # Update Content-Length header
+                        headers = requestInfo.getHeaders()
+                        new_headers = []
+                        for header in headers:
+                            if not header.lower().startswith("content-length:"):
+                                new_headers.append(header)
+                        new_headers.append("Content-Length: " + str(len(modified_body_bytes)))
+
+                        # Build new request
+                        new_request = self._helpers.buildHttpMessage(new_headers, modified_body_bytes)
+                        messageInfo.setRequest(new_request)
+                        print("Modified request for endpoint3")
 
                 except Exception as e:
                     print("Error processing request: " + str(e))
 
-        # Process responses (existing logic for endpoint1 and endpoint2)
+        # Process responses (for endpoint1 and endpoint2)
         else:
             # Get the HTTP service and response info
             httpService = messageInfo.getHttpService()
