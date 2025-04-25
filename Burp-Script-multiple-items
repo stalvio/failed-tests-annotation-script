@@ -1,0 +1,140 @@
+from burp import IBurpExtender
+from burp import IHttpListener
+import json
+import random
+
+class BurpExtender(IBurpExtender, IHttpListener):
+    def registerExtenderCallbacks(self, callbacks):
+        self._callbacks = callbacks
+        self._helpers = callbacks.getHelpers()
+        callbacks.setExtensionName("JSON Response and Request Modifier")
+        callbacks.registerHttpListener(self)
+        print("JSON Response and Request Modifier Extension Loaded")
+        return
+
+    def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
+        # Define the hard-coded list of 20 names
+        namelist = [
+            "Alpha", "Beta", "Gamma", "Delta", "Epsilon",
+            "Zeta", "Eta", "Theta", "Iota", "Kappa",
+            "Lambda", "Mu", "Nu", "Xi", "Omicron",
+            "Pi", "Rho", "Sigma", "Tau", "Upsilon"
+        ]
+
+        # Process requests
+        if messageIsRequest:
+            # Get the HTTP service and request info
+            httpService = messageInfo.getHttpService()
+            request = messageInfo.getRequest()
+            requestInfo = self._helpers.analyzeRequest(httpService, request)
+            url = requestInfo.getUrl()
+
+            # Check if the request is to endpoint3
+            if url.getPath().endswith("/endpoint3"):
+                try:
+                    # Parse the request body
+                    body_offset = requestInfo.getBodyOffset()
+                    body_bytes = request[body_offset:]
+                    body_str = self._helpers.bytesToString(body_bytes)
+                    json_data = json.loads(body_str)
+
+                    # Check if dNames exists and has a single numeric string
+                    if "dNames" in json_data and len(json_data["dNames"]) == 1:
+                        try:
+                            num_names = int(json_data["dNames"][0])
+                            if num_names > len(namelist):
+                                print("Warning: Requested {} names, but namelist has only {}. Using all available names.".format(num_names, len(namelist)))
+                                num_names = len(namelist)
+                            if num_names < 0:
+                                print("Warning: Negative number of names requested. Ignoring modification.")
+                                return
+
+                            # Select random names
+                            selected_names = random.sample(namelist, num_names)
+                            json_data["dNames"] = selected_names
+
+                            # Convert back to JSON string
+                            modified_body = json.dumps(json_data)
+                            modified_body_bytes = self._helpers.stringToBytes(modified_body)
+
+                            # Update Content-Length header
+                            headers = requestInfo.getHeaders()
+                            new_headers = []
+                            for header in headers:
+                                if not header.lower().startswith("content-length:"):
+                                    new_headers.append(header)
+                            new_headers.append("Content-Length: " + str(len(modified_body_bytes)))
+
+                            # Build new request
+                            new_request = self._helpers.buildHttpMessage(new_headers, modified_body_bytes)
+                            messageInfo.setRequest(new_request)
+                            print("Modified request for endpoint3 with {} random names".format(num_names))
+
+                        except ValueError:
+                            print("Error: dNames contains non-numeric value: {}".format(json_data["dNames"][0]))
+                    else:
+                        print("No modification: dNames does not contain a single numeric string")
+
+                except Exception as e:
+                    print("Error processing request: " + str(e))
+
+        # Process responses (existing logic for endpoint1 and endpoint2)
+        else:
+            # Get the HTTP service and response info
+            httpService = messageInfo.getHttpService()
+            response = messageInfo.getResponse()
+            if response is None:
+                return
+
+            # Parse the response
+            responseInfo = self._helpers.analyzeResponse(response)
+            headers = responseInfo.getHeaders()
+            body_offset = responseInfo.getBodyOffset()
+            body_bytes = response[body_offset:]
+
+            # Get the request to check the endpoint
+            request = messageInfo.getRequest()
+            requestInfo = self._helpers.analyzeRequest(httpService, request)
+            url = requestInfo.getUrl()
+
+            # Check if the response is from endpoint1 or endpoint2
+            if url.getPath().endswith("/endpoint1") or url.getPath().endswith("/endpoint2"):
+                try:
+                    # Convert body to string
+                    body_str = self._helpers.bytesToString(body_bytes)
+                    # Parse JSON
+                    json_data = json.loads(body_str)
+
+                    # Check if jsonArray exists
+                    if "jsonArray" in json_data:
+                        # New arrays to append
+                        new_arrays = [
+                            ["4", "4", "4", "4", "4"],
+                            ["5", "5", "5", "5", "5"],
+                            ["6", "6", "6", "6", "6"],
+                            ["7", "7", "7", "7", "7"],
+                            ["8", "8", "8", "8", "8"],
+                            ["9", "9", "9", "9", "9"]
+                        ]
+
+                        # Append new arrays to jsonArray
+                        json_data["jsonArray"].extend(new_arrays)
+
+                        # Convert back to JSON string
+                        modified_body = json.dumps(json_data)
+                        modified_body_bytes = self._helpers.stringToBytes(modified_body)
+
+                        # Update Content-Length header
+                        new_headers = []
+                        for header in headers:
+                            if not header.lower().startswith("content-length:"):
+                                new_headers.append(header)
+                        new_headers.append("Content-Length: " + str(len(modified_body_bytes)))
+
+                        # Build new response
+                        new_response = self._helpers.buildHttpMessage(new_headers, modified_body_bytes)
+                        messageInfo.setResponse(new_response)
+                        print("Modified JSON response for " + url.getPath())
+
+                except Exception as e:
+                    print("Error processing response: " + str(e))
