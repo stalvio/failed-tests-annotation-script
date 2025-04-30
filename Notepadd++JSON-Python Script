@@ -1,2 +1,11 @@
 import json
-editor.setText('\n'.join(item[0] for item in json.loads(editor.getText())['jsonArray']))
+# Get the text from the current Notepad++ document
+text = editor.getText()
+try:
+    # Parse JSON and extract first elements
+    data = json.loads(text)
+    result = '\n'.join(item[0] for item in data['jsonArray'])
+    # Replace document content with the result
+    editor.setText(result)
+except json.JSONDecodeError:
+    console.write('Error: Invalid JSON format')
