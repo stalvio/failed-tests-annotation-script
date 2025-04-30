@@ -9,3 +9,6 @@ try:
     editor.setText(result)
 except json.JSONDecodeError:
     console.write('Error: Invalid JSON format')
+
+
+C:\Users\<YourUser>\AppData\Roaming\Notepad++\plugins\config\PythonScript\scripts
