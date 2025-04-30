@@ -1,0 +1,2 @@
+import json
+editor.setText('\n'.join(item[0] for item in json.loads(editor.getText())['jsonArray']))
