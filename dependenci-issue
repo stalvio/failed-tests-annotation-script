@@ -1,0 +1,9 @@
+plugins {
+    id 'com.energizedwork.webdriver-binaries' version '1.4'
+}
+
+dependencies {
+    implementation('com.energizedwork.webdriver-binaries:com.energizedwork.webdriver-binaries.gradle.plugin:1.4') {
+        exclude group: 'org.ysb33r.gradle', module: 'grolifant'
+    }
+}
