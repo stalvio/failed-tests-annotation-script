@@ -1,0 +1,25 @@
+@Grab('com.xlson.groovycsv:groovycsv:1.3')
+import com.xlson.groovycsv.CsvParser
+
+def file = new File('salaries.csv')
+def csvContent = file.text
+def csv = CsvParser.parseCsv([separator: '|'], csvContent)
+def result = [:]
+
+csv.each { row ->
+    def name = row.name
+    def salaryType = row.'salary-type'
+    def salaryMap = [:]
+    
+    // Collect all columns except 'name' and 'salary-type'
+    row.toMap().each { key, value ->
+        if (key != 'name' && key != 'salary-type') {
+            salaryMap[key] = value // Value is already a string
+        }
+    }
+    
+    result.computeIfAbsent(name) { [:] }
+    result[name][salaryType] = salaryMap
+}
+
+println result
