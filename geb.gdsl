@@ -1,25 +1,18 @@
 def ctx = context(ctype: 'geb.spock.GebSpec')
 
 contributor(ctx) {
-    def pageClasses = findClass('geb.Page')?.subclasses ?: []
-    pageClasses.each { pageClass ->
-        def pageName = pageClass.simpleName
-        // Add page instance method (e.g., to(MyPage))
-        method name: "to${pageName}", type: pageName, params: [args: 'java.lang.Object[]'], doc: "Navigate to ${pageName}"
+    // Define methods for Geb Page navigation and content
+    method(name: 'to', type: 'geb.Page', params: [page: 'geb.Page'], doc: 'Navigate to a page')
+    method(name: 'at', type: 'boolean', params: [page: 'geb.Page'], doc: 'Check if at the specified page')
 
-        // Add content definitions from the page's static content closure
-        def content = pageClass.getDeclaredField('content')?.get(null) as Closure
-        if (content) {
-            content.delegate = new Object()
-            content.resolveStrategy = Closure.DELEGATE_FIRST
-            content.call()
-            def contentMethods = content.delegate.properties?.keySet() ?: []
-            contentMethods.each { methodName ->
-                method name: methodName, type: 'geb.PageElement', params: [:], doc: "Access the ${methodName} element"
+    // Manually specify known page classes (replace with your actual page classes)
+    ['MyPage'].each { pageName ->
+        def pageClass = findClass(pageName)
+        if (pageClass) {
+            // Add content methods dynamically (example)
+            ['page_title'].each { contentName ->
+                method(name: contentName, type: 'geb.PageElement', params: [:], doc: "Access the ${contentName} element")
             }
         }
     }
-
-    // Add methods like 'at' for page verification
-    method name: 'at', type: 'boolean', params: [page: 'geb.Page'], doc: 'Check if at the specified page'
 }
