@@ -12,3 +12,6 @@ ids = [element['id'] for element in soup.find_all(id=True)]
 # Print each ID on a new line
 for id_value in ids:
     print(id_value)
+
+
+return input.replaceAll("\\w+=\"\"\\s*", "").replaceAll("\\s+", " ");
