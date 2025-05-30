@@ -1,0 +1,11 @@
+public class Main {
+    public static void main(String[] args) {
+        String str = "<p>hello, </p>, <p>hi</p>, <p>hole</p>";
+        String[] result = str.split(",\\s*(?=<p>)");
+        
+        // Print the resulting array
+        for (String element : result) {
+            System.out.println(element);
+        }
+    }
+}
