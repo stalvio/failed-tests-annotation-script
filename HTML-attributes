@@ -1,0 +1,14 @@
+from bs4 import BeautifulSoup
+
+# Your HTML string
+html_string = '<div id="hello1" /><div id="hi" class="row"/><div id="24" />'
+
+# Create a BeautifulSoup object
+soup = BeautifulSoup(html_string, 'html.parser')
+
+# Find all elements with an 'id' attribute
+ids = [element['id'] for element in soup.find_all(id=True)]
+
+# Print each ID on a new line
+for id_value in ids:
+    print(id_value)
