@@ -1,15 +1,11 @@
-import geb.module.Select
-
-class CustomSelectModule extends Select {
+@Override
     String value() {
         def seleniumSelect = getSelect()
-        def selectedOption = seleniumSelect.firstSelectedOption
-        if (selectedOption) {
-            return selectedOption.getAttribute("value")
+        try {
+            def selectedOption = seleniumSelect.firstSelectedOption
+            return selectedOption?.getAttribute("value")
+        } catch (Exception e) {
+            def selected = getElement().find("option[selected]")
+            return selected?.getAttribute("value") ?: null
         }
-        // Fallback: Check for selected="" explicitly
-        def element = getElement()
-        def selected = element.find("option[selected]")
-        selected?.getAttribute("value") ?: null
     }
-}
