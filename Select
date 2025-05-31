@@ -9,3 +9,5 @@
             return selected?.getAttribute("value") ?: null
         }
     }
+
+./gradlew clean build --refresh-dependencies
