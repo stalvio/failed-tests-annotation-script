@@ -1,0 +1,85 @@
+from burp import IBurpExtender
+from burp import IHttpListener
+import re
+
+class BurpExtender(IBurpExtender, IHttpListener):
+    def registerExtenderCallbacks(self, callbacks):
+        # Store callbacks and helpers
+        self._callbacks = callbacks
+        self._helpers = callbacks.getHelpers()
+        # Register the HTTP listener
+        callbacks.setExtensionName("Status Code Modifier")
+        callbacks.registerHttpListener(self)
+        print("Status Code Modifier Extension Loaded")
+
+        # Define status code mappings for each endpoint
+        self.endpoint1_status_codes = {
+            "22": 401,
+            "23": 403,
+            "45": 500,
+            "65": 503
+        }
+        self.endpoint2_status_codes = {
+            "100": 401,
+            "101": 403,
+            "102": 500,
+            "103": 503
+        }
+
+    def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
+        # Only process responses
+        if messageIsRequest:
+            return
+
+        # Get the request info to analyze the URL and method
+        request = messageInfo.getRequest()
+        requestInfo = self._helpers.analyzeRequest(messageInfo)
+        url = requestInfo.getUrl()
+        method = requestInfo.getMethod()
+
+        # Only process GET requests
+        if method != "GET":
+            return
+
+        # Convert URL to string for regex matching
+        url_str = str(url)
+
+        # Define regex patterns for the endpoints
+        endpoint1_pattern = r"/api/my_endpoint_1/(\d+)"
+        endpoint2_pattern = r"/api/my_endpoint_2/(\d+)"
+
+        # Check if the URL matches endpoint 1
+        match1 = re.search(endpoint1_pattern, url_str)
+        if match1:
+            path_param = match1.group(1)
+            if path_param in self.endpoint1_status_codes:
+                self.modify_response_status(messageInfo, self.endpoint1_status_codes[path_param])
+            return
+
+        # Check if the URL matches endpoint 2
+        match2 = re.search(endpoint2_pattern, url_str)
+        if match2:
+            path_param = match2.group(1)
+            if path_param in self.endpoint2_status_codes:
+                self.modify_response_status(messageInfo, self.endpoint2_status_codes[path_param])
+            return
+
+    def modify_response_status(self, messageInfo, new_status_code):
+        # Get the original response
+        response = messageInfo.getResponse()
+        responseInfo = self._helpers.analyzeResponse(response)
+
+        # Get headers and body
+        headers = responseInfo.getHeaders()
+        body = response[responseInfo.getBodyOffset():]
+
+        # Modify the status code in the first header line
+        for i in range(len(headers)):
+            if headers[i].startswith("HTTP/"):
+                headers[i] = re.sub(r"HTTP/\d\.\d \d{3}", f"HTTP/1.1 {new_status_code}", headers[i])
+                break
+
+        # Build and set the modified response
+        updated_response = self._helpers.buildHttpMessage(headers, body)
+        messageInfo.setResponse(updated_response)
+        print(f"Modified status code to {new_status_code} for URL: {str(messageInfo.getUrl())}")
